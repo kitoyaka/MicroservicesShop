@@ -10,6 +10,8 @@ builder.Services.AddDbContext<UserDB>(options =>
 
 builder.Services.AddScoped<IUserService, UserService>();
 
+builder.Services.AddHttpClient();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -27,6 +29,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.MapGet("/api/users/books-proxy", async (IUserService service) =>
+{
+    var result = await service.GetBooksFromOtherApiAsync();
+    return Results.Ok(result);
+});
 
 app.MapGet("/api/users", async(IUserService service) =>
 {

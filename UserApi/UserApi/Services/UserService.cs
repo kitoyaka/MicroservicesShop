@@ -7,6 +7,14 @@ namespace UserApi.Services;
 public class UserService : IUserService
 {
     private readonly UserDB _db;
+    private readonly IHttpClientFactory _httpFactory;
+
+    public UserService(UserDB db, IHttpClientFactory httpFactory)
+    {
+        _db = db;
+        _httpFactory = httpFactory;
+
+    }
 
     public UserService (UserDB db)
     {
@@ -55,6 +63,21 @@ public class UserService : IUserService
         }
         else return false;
 
+    }
+
+    public async Task<string> GetBooksFromOtherApiAsync()
+    {
+        var client = _httpFactory.CreateClient();
+
+
+        var response = await client.GetAsync("http://books-api:8080/api/books");
+
+        if (response.IsSuccessStatusCode)
+        {
+            string content = await response.Content.ReadAsStringAsync();
+            return content;
+        }
+        return "Error";
     }
 
 }
