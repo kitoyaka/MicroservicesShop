@@ -1,13 +1,17 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-
+using BooksApi.Data;
+using BooksApi.Models;
+using BooksApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddDbContext<BookDataBase>(options =>
-    options.UseSqlite("Data Source=myApi.db")); 
+    options.UseSqlite("Data Source=myApi.db"));
+
+builder.Services.AddScoped<IBookService, BookService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -25,112 +29,46 @@ using (var scope = app.Services.CreateScope())
         app.UseSwaggerUI();
     }
 
-app.MapGet("/api/books", async (BookDataBase db) =>
+app.MapGet("/api/books", async (IBookService service) =>
 {
-    return await db.Books.ToListAsync();
+    return await service.GetAllAsync();
 });
 
 
-app.MapGet("api/books/{id}", async (BookDataBase db, int id) =>
+app.MapGet("api/books/{id}", async (IBookService service, int id) =>
 {
-    var book = await db.Books.FindAsync(id);
-    if (book is null)
-    { 
-        return Results.NotFound($"Книгу '{id}' не знайдено.");
-    }
-    return Results.Ok(book);    
+    var result = await service.GetBookByIdAsync(id);
+    return Results.Ok(result);
 });
 
-app.MapGet("api/books/search", async (BookDataBase db, string? name, int? maxPrice) =>
+app.MapGet("api/books/search", async (IBookService service, string? name, int? maxPrice) =>
 {
-    var query = db.Books.AsQueryable();
-    if (!string.IsNullOrEmpty(name))
-    {
-        query = query.Where(x => x.Name.Equals(name));
-    }
-
-    if (maxPrice.HasValue)
-    {
-        query = query.Where(x => x.Price.Equals(maxPrice.Value));
-    }
-
-        var results = await query.ToListAsync();
-    return Results.Ok(results);
-
+    var book = await service.SearchAsync(name, maxPrice);
+    return Results.Ok(book);
 });
 
 
-app.MapPost("/api/books", async (BookDataBase db, Book newBook) =>
+app.MapPost("/api/books", async (IBookService service, Book newBook) =>
 {
-
-    if (string.IsNullOrEmpty(newBook.Name) || newBook.Price <= 0)
-    {
-        return Results.Problem("Дані невалідні.", statusCode: 400);
-    }
-
-
-    db.Books.Add(newBook);
-
-    await db.SaveChangesAsync();
-
-    return Results.Created($"/api/books/{newBook.Name}", newBook);
+    var createdBook = await service.CreateAsync(newBook);
+    return Results.Ok(createdBook);
 });
 
 
-app.MapPut("/api/books/{id}", async (BookDataBase db, int id, Book updatedBook) =>
+app.MapPut("/api/books/{id}", async (IBookService service, int id, Book updatedBook) =>
 {
-
-    var existingBook = await db.Books.FindAsync(id);
-
-    if (existingBook is null)
-    {
-        return Results.NotFound($"Книгу '{id}' не знайдено.");
-    }
-
-    if (updatedBook.Price <= 0 || string.IsNullOrEmpty(updatedBook.Name))
-    {
-        return Results.Problem("Нові дані невалідні");
-    }
-
-    existingBook.Name = updatedBook.Name;
-    existingBook.Price = updatedBook.Price;
-    await db.SaveChangesAsync();
+    var existingBook = await service.UpdateAsync(id, updatedBook);
+    if (existingBook == null) return Results.NotFound();
     return Results.Ok(existingBook);
 });
 
 
-app.MapDelete("/api/books/{id}", async (BookDataBase db, int id) =>
+app.MapDelete("/api/books/{id}", async (IBookService service, int id) =>
 {
-    var book = await db.Books.FindAsync(id);    
-    if (book is null)
-    {
-        return Results.NotFound($"Книгу '{id}' не знайдено.");
-    }
-
-    db.Books.Remove(book);
-
-    await db.SaveChangesAsync();
-
+    var book = await service.DeleteAsync(id);
     return Results.NoContent();
 });
-
-
 
 app.Run();
 
 
-public class Book
-{
-    public int Id { get; set; } 
-    public string? Name { get; set; }
-    public int Price { get; set; }
-}
-
-
-public class BookDataBase : DbContext
-{
-    public DbSet<Book> Books { get; set; }
-
-    public BookDataBase(DbContextOptions<BookDataBase> options)
-        : base(options) { }
-}
