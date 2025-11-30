@@ -8,7 +8,7 @@ namespace BooksApi.Services
     {
         private readonly BookDataBase _db;
 
-        BookService(BookDataBase db)
+        public BookService(BookDataBase db)
         {
             _db = db;
         }
