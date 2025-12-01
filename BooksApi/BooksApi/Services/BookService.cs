@@ -28,12 +28,12 @@ namespace BooksApi.Services
             var query = _db.Books.AsQueryable();
             if (!string.IsNullOrEmpty(name))
             {
-                query = query.Where(x => x.Name.Equals(name));
+                query = query.Where(x => x.Name.Contains(name));
             }
 
             if (maxPrice.HasValue)
             {
-                query = query.Where(x => x.Price.Equals(maxPrice.Value));
+                query = query.Where(x => x.Price <= maxPrice.Value);
             }
 
             return await query.ToListAsync();
