@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using BooksApi.Data;
 using BooksApi.Models;
 using BooksApi.Services;
+using BooksApi.DTOs;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,9 +51,9 @@ app.MapGet("api/books/search", async (IBookService service, string? name, int? m
 });
 
 
-app.MapPost("/api/books", async (IBookService service, Book newBook) =>
+app.MapPost("/api/books", async (IBookService service, CreateBookDto newBookDTO) =>
 {
-    var createdBook = await service.CreateAsync(newBook);
+    var createdBook = await service.CreateAsync(newBookDTO);
     return Results.Ok(createdBook);
 });
 

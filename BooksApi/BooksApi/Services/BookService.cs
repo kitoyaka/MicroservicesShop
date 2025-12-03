@@ -1,6 +1,8 @@
 ﻿using BooksApi.Data;
 using BooksApi.Models;
+using BooksApi.DTOs;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Headers;
 
 namespace BooksApi.Services
 {
@@ -13,9 +15,18 @@ namespace BooksApi.Services
             _db = db;
         }
 
-        public async Task<List<Book>> GetAllAsync()
+        public async Task<List<BookDto>> GetAllAsync()
         {
-            return await _db.Books.ToListAsync();
+            var entities = await _db.Books.ToListAsync();
+
+            var dtos = entities.Select(b => new BookDto
+            {
+                Id = b.Id,
+                Title = b.Name ?? "uknown name",
+                Price = b.Price
+            }).ToList();
+
+            return dtos;
         }
 
         public async Task<Book?> GetBookByIdAsync(int id)
@@ -28,7 +39,7 @@ namespace BooksApi.Services
             var query = _db.Books.AsQueryable();
             if (!string.IsNullOrEmpty(name))
             {
-                query = query.Where(x => x.Name.Contains(name));
+                query = query.Where(b => b.Name != null && b.Name.Contains(name));
             }
 
             if (maxPrice.HasValue)
@@ -39,16 +50,28 @@ namespace BooksApi.Services
             return await query.ToListAsync();
         }
 
-        public async Task<Book?> CreateAsync(Book newBook)
+        public async Task<BookDto?> CreateAsync(CreateBookDto newBookDTO)
         {
 
-            if (string.IsNullOrEmpty(newBook.Name) || newBook.Price <= 0)
+            if (string.IsNullOrEmpty(newBookDTO.Title) || newBookDTO.Price <= 0)
             {
                 return null;
             }
-            _db.Books.Add(newBook);
+            
+            var entity = new Book
+            {
+             Name = newBookDTO.Title,
+             Price = newBookDTO.Price  
+            };
+
+            _db.Books.Add(entity);
             await _db.SaveChangesAsync();
-            return newBook;
+            return new BookDto
+            {
+                Id = entity.Id,
+                Title = entity.Name,
+                Price = entity.Price
+            };
         }
 
         public async Task<bool> UpdateAsync(int id, Book newBook)
