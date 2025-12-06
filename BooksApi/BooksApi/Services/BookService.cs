@@ -1,4 +1,5 @@
-﻿using BooksApi.Data;
+﻿using AutoMapper;
+using BooksApi.Data;
 using BooksApi.Models;
 using BooksApi.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -9,32 +10,28 @@ namespace BooksApi.Services
     public class BookService : IBookService
     {
         private readonly BookDataBase _db;
+        private readonly IMapper _mapper;
 
-        public BookService(BookDataBase db)
+        public BookService(BookDataBase db, IMapper mapper)
         {
             _db = db;
+            _mapper = mapper;
         }
 
         public async Task<List<BookDto>> GetAllAsync()
         {
             var entities = await _db.Books.ToListAsync();
 
-            var dtos = entities.Select(b => new BookDto
-            {
-                Id = b.Id,
-                Title = b.Name ?? "uknown name",
-                Price = b.Price
-            }).ToList();
-
-            return dtos;
+            return _mapper.Map<List<BookDto>>(entities);
         }
 
-        public async Task<Book?> GetBookByIdAsync(int id)
+        public async Task<BookDto?> GetBookByIdAsync(int id)
         {
-            return await _db.Books.FindAsync(id);
+            var entity = await _db.Books.FindAsync(id);
+            return _mapper.Map<BookDto>(entity);
         }
 
-        public async Task<List<Book>> SearchAsync(string? name, int? maxPrice)
+        public async Task<List<BookDto>> SearchAsync(string? name, int? maxPrice)
         {
             var query = _db.Books.AsQueryable();
             if (!string.IsNullOrEmpty(name))
@@ -47,7 +44,8 @@ namespace BooksApi.Services
                 query = query.Where(x => x.Price <= maxPrice.Value);
             }
 
-            return await query.ToListAsync();
+            var entities = await query.ToListAsync();
+            return _mapper.Map<List<BookDto>>(entities);
         }
 
         public async Task<BookDto?> CreateAsync(CreateBookDto newBookDTO)
@@ -58,34 +56,21 @@ namespace BooksApi.Services
                 return null;
             }
             
-            var entity = new Book
-            {
-             Name = newBookDTO.Title,
-             Price = newBookDTO.Price  
-            };
+            var entity = _mapper.Map<Book>(newBookDTO);
 
             _db.Books.Add(entity);
             await _db.SaveChangesAsync();
-            return new BookDto
-            {
-                Id = entity.Id,
-                Title = entity.Name,
-                Price = entity.Price
-            };
+            return _mapper.Map<BookDto>(entity);
+
         }
 
-        public async Task<bool> UpdateAsync(int id, Book newBook)
+        public async Task<bool> UpdateAsync(int id, CreateBookDto updatedBookDTO)
         {
             var existingBook = await _db.Books.FindAsync(id);
             if (existingBook is null) return false;
-            if (string.IsNullOrEmpty(newBook.Name) || newBook.Price <= 0)
-            {
-                return false;
-            }
+            
+            _mapper.Map(updatedBookDTO, existingBook);
 
-
-            existingBook.Name = newBook.Name;
-            existingBook.Price = newBook.Price;
             await _db.SaveChangesAsync();
             return true;
         }

@@ -8,10 +8,10 @@ namespace BooksApi.Services
     public interface IBookService
     {
         Task<List<BookDto>> GetAllAsync();
-        Task<Book?> GetBookByIdAsync(int id);
-        Task<List<Book>> SearchAsync(string? name, int? maxPrice);
+        Task<BookDto?> GetBookByIdAsync(int id);
+        Task<List<BookDto>> SearchAsync(string? name, int? maxPrice);
         Task<BookDto?> CreateAsync(CreateBookDto newBookDTO);
-        Task<bool> UpdateAsync(int id, Book newBook);
+        Task<bool> UpdateAsync(int id, CreateBookDto updatedBook);
         Task<bool> DeleteAsync(int id);
     }
 }

@@ -16,6 +16,7 @@ builder.Services.AddDbContext<BookDataBase>(options =>
 
 builder.Services.AddScoped<IBookService, BookService>();
 
+builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 var app = builder.Build();
@@ -58,11 +59,14 @@ app.MapPost("/api/books", async (IBookService service, CreateBookDto newBookDTO)
 });
 
 
-app.MapPut("/api/books/{id}", async (IBookService service, int id, Book updatedBook) =>
+app.MapPut("/api/books/{id}", async (IBookService service, int id, CreateBookDto updatedBook) =>
 {
-    var existingBook = await service.UpdateAsync(id, updatedBook);
-    if (existingBook == null) return Results.NotFound();
-    return Results.Ok(existingBook);
+    
+    bool success = await service.UpdateAsync(id, updatedBook);
+    
+    if (!success) return Results.NotFound();
+    
+    return Results.Ok("Updated successfully");
 });
 
 
