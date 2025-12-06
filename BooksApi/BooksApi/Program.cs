@@ -5,7 +5,7 @@ using BooksApi.Data;
 using BooksApi.Models;
 using BooksApi.Services;
 using BooksApi.DTOs;
-
+using FluentValidation;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,7 +16,9 @@ builder.Services.AddDbContext<BookDataBase>(options =>
 
 builder.Services.AddScoped<IBookService, BookService>();
 
+
 builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 var app = builder.Build();
@@ -55,6 +57,10 @@ app.MapGet("api/books/search", async (IBookService service, string? name, int? m
 app.MapPost("/api/books", async (IBookService service, CreateBookDto newBookDTO) =>
 {
     var createdBook = await service.CreateAsync(newBookDTO);
+    if(createdBook is null)
+    {
+        return Results.BadRequest("Validation problem. Check book name or price");
+    }
     return Results.Ok(createdBook);
 });
 

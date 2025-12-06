@@ -4,6 +4,7 @@ using BooksApi.Models;
 using BooksApi.DTOs;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
+using FluentValidation;
 
 namespace BooksApi.Services
 {
@@ -11,11 +12,13 @@ namespace BooksApi.Services
     {
         private readonly BookDataBase _db;
         private readonly IMapper _mapper;
+        private readonly IValidator<CreateBookDto> _validator;
 
-        public BookService(BookDataBase db, IMapper mapper)
+        public BookService(BookDataBase db, IMapper mapper, IValidator<CreateBookDto> validator)
         {
             _db = db;
             _mapper = mapper;
+            _validator = validator;
         }
 
         public async Task<List<BookDto>> GetAllAsync()
@@ -50,11 +53,8 @@ namespace BooksApi.Services
 
         public async Task<BookDto?> CreateAsync(CreateBookDto newBookDTO)
         {
-
-            if (string.IsNullOrEmpty(newBookDTO.Title) || newBookDTO.Price <= 0)
-            {
-                return null;
-            }
+            var validationResult = await _validator.ValidateAsync(newBookDTO);
+            if(!validationResult.IsValid) return null;
             
             var entity = _mapper.Map<Book>(newBookDTO);
 
