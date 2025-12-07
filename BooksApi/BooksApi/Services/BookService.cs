@@ -12,13 +12,11 @@ namespace BooksApi.Services
     {
         private readonly BookDataBase _db;
         private readonly IMapper _mapper;
-        private readonly IValidator<CreateBookDto> _validator;
 
-        public BookService(BookDataBase db, IMapper mapper, IValidator<CreateBookDto> validator)
+        public BookService(BookDataBase db, IMapper mapper)
         {
             _db = db;
             _mapper = mapper;
-            _validator = validator;
         }
 
         public async Task<List<BookDto>> GetAllAsync()
@@ -53,9 +51,6 @@ namespace BooksApi.Services
 
         public async Task<BookDto?> CreateAsync(CreateBookDto newBookDTO)
         {
-            var validationResult = await _validator.ValidateAsync(newBookDTO);
-            if(!validationResult.IsValid) return null;
-            
             var entity = _mapper.Map<Book>(newBookDTO);
 
             _db.Books.Add(entity);

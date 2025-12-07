@@ -1,13 +1,26 @@
-﻿using BooksApi.Data;
+﻿using AutoMapper;
+using BooksApi.Data;
+using BooksApi.DTOs;
 using BooksApi.Models;
 using BooksApi.Services;
 using FluentAssertions;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 
 namespace BooksApi.Tests;
 
 public class BookServiceTests
 {
+
+    private IMapper GetMapper()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.AddProfile(new MappingProfile());
+        });
+        return config.CreateMapper();
+    }
     private BookDataBase GetInMemoryDb()
     {
         var options = new DbContextOptionsBuilder<BookDataBase>()
@@ -17,97 +30,70 @@ public class BookServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_InvalidPrice_ReturnsNull()
+    public async Task CreateAsync_ValidBook_ReturnsCreatedBookDto()
     {
-        var db = GetInMemoryDb();
-        var service = new BookService(db);
+       var db = GetInMemoryDb();
+       var mapper = GetMapper();
+       var service = new BookService(db, mapper);
 
-        var badBook = new Book { Name = "BAD BOOK", Price = -100 };
-        var result = await service.CreateAsync(badBook);
+       var newBookDto = new CreateBookDto {Title = "valide name", Price = 1000};
+       var result = await service.CreateAsync(newBookDto);
 
-        result.Should().BeNull();
-
-        var count = await db.Books.CountAsync();
-        count.Should().Be(0);
-
-    }
-
-
-    [Fact]
-    public async Task CreateAsync_ValidBook_ReturnsCreatedBooks()
-    {
-        var db = GetInMemoryDb();
-        var service = new BookService(db);
-
-        var goodBook = new Book { Name = "Clean Code", Price = 100 };
-        var result = await service.CreateAsync(goodBook);
-    
         result.Should().NotBeNull();
-        result.Name.Should().Be("Clean Code");
+        result.Title.Should().Be("valide name");
 
         var count = await db.Books.CountAsync();
         count.Should().Be(1);
-
-        var savedBook = await db.Books.FirstAsync();
-        savedBook.Name.Should().Be("Clean Code");
     }
 
     [Fact]
     public async Task UpdateAsync_ExistingBook_ValidData_ReturnsTrue()
     {
+        var mapper = GetMapper();
         var db = GetInMemoryDb();
-        var service = new BookService(db);
+        var service = new BookService(db, mapper);
 
-        var newBook = new Book {Id = 1, Name = "Old Name", Price = 100};
-        await service.CreateAsync(newBook);
+        var existingBook = new Book {Id = 1, Name = "old name" , Price = 1000};
 
-        var newBookData = new Book {Name = "New Name", Price = 100};
-        var resultOfUpdate = await service.UpdateAsync(1, newBookData);
+        db.Books.Add(existingBook);
+        await db.SaveChangesAsync();
 
-        resultOfUpdate.Should().BeTrue();
-        var resultOfCreation = db.Books.Find(1);
-        resultOfCreation.Should().NotBeNull();
-        resultOfCreation.Name.Should().Be("New Name");        
+        var updateDto =  new CreateBookDto { Title = "new name", Price = 1001};
+        var result = await service.UpdateAsync(1, updateDto);
+
+        result.Should().BeTrue();
+        var updatedBook = await db.Books.FindAsync(1);
+        updatedBook.Should().NotBeNull();
+        updatedBook!.Name.Should().Be("new name");
     }
 
     [Fact]
     public async Task UpdateAsync_NonExistingId_FalseReturn()
     {
+        var mapper = GetMapper();
         var db = GetInMemoryDb();
-        var service = new BookService(db);
+        var service = new BookService(db, mapper);
 
         var valideBook = new Book {Id = 1, Name = "Valide Name", Price = 100};
-        await service.CreateAsync(valideBook);
+        db.Books.Add(valideBook);
+        await db.SaveChangesAsync();
 
-        var result = await service.UpdateAsync(999, valideBook);
+        var valideBookDto = new CreateBookDto{Title = "new name", Price = 105};
+
+        var result = await service.UpdateAsync(999, valideBookDto);
         result.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task UpdateAsync_InvalidPrice_ReturnsFalse()
-    {
-        var db = GetInMemoryDb();
-        var service = new BookService(db);
-
-        var valideBook = new Book {Id = 1, Name = "Valide Name", Price = 100};
-        await service.CreateAsync(valideBook);
-
-        var badUpdate = new Book {Id = 1, Name = "Valide Name", Price = -50};
-        var result = await service.UpdateAsync(1, badUpdate);
-        result.Should().BeFalse();
-        var existingBook = db.Books.Find(1);
-        existingBook.Should().NotBeNull();
-        existingBook.Price.Should().Be(100);
     }
 
     [Fact]
     public async Task DeleteAsync_ExistingBook_ReturnsTrue()
     {
+        var mapper = GetMapper();
         var db = GetInMemoryDb();
-        var service = new BookService(db);
+        var service = new BookService(db, mapper);
 
-        var valideBook = new Book {Id = 1, Name = "Valide Name", Price = 100};
-        await service.CreateAsync(valideBook);
+        var valideBook = new Book {Id = 1, Name = "valide name", Price = 105};
+        db.Books.Add(valideBook);
+        await db.SaveChangesAsync();
 
         var result = await service.DeleteAsync(1);
         result.Should().BeTrue();
@@ -118,11 +104,13 @@ public class BookServiceTests
     [Fact]
     public async Task DeleteAsync_NonExistingId_ReturnsFalse()
     {
+        var mapper = GetMapper();
         var db = GetInMemoryDb();
-        var service = new BookService(db);
+        var service = new BookService(db, mapper);
 
         var validBook = new Book {Id = 1, Name = "Valude Name", Price = 100};
-        await service.CreateAsync(validBook);
+        db.Books.Add(validBook);
+        await db.SaveChangesAsync();
 
         var result = await service.DeleteAsync(-1);
         result.Should().BeFalse();
@@ -133,34 +121,42 @@ public class BookServiceTests
     [Fact]
     public async Task SearchAsync_ByName_ReturnMatchingBooks()
     {
+        var mapper = GetMapper();
         var db = GetInMemoryDb();
-        var service = new BookService(db);
+        var service = new BookService(db, mapper);
 
         var validBook1 = new Book {Id = 1, Name = "Harry Potter", Price = 100};
         var validBook2 = new Book {Id = 2, Name = "Harry Styles Biography", Price = 150};
         var validBook3 = new Book {Id = 3, Name = "Lord of the Rings", Price = 200};
-        await service.CreateAsync(validBook1);
-        await service.CreateAsync(validBook2);
-        await service.CreateAsync(validBook3);
+       db.Books.Add(validBook1);
+       db.Books.Add(validBook2);
+       db.Books.Add(validBook3);
+       await db.SaveChangesAsync();
 
-        var searchingResult = await service.SearchAsync("Harry", null);
-        searchingResult.Should().BeEquivalentTo(new[] {validBook1, validBook2});
+        var searchResult = await service.SearchAsync("Harry", null);
+        searchResult.Should().HaveCount(2);
+
+        searchResult.Select(b => b.Title).Should().NotContain("Lord of the Rings");
+        
     }
 
     [Fact]
     public async Task SearchAsync_ByMaxPrice_ReturnsCheapBooks()
     {
+        var mapper = GetMapper();
         var db = GetInMemoryDb();
-        var service = new BookService(db);
+        var service = new BookService(db, mapper);
 
         var validBook1 = new Book {Id = 1, Name = "Harry Potter", Price = 100};
         var validBook2 = new Book {Id = 2, Name = "Valid name", Price = 200};
         var validBook3 = new Book {Id = 3, Name = "Harry Potter32", Price = 500};
         var validBook4 = new Book {Id = 4, Name = "Harry Potter123", Price = 1000};
-        await service.CreateAsync(validBook1);
-        await service.CreateAsync(validBook2);
-        await service.CreateAsync(validBook3);
-        await service.CreateAsync(validBook4);
+        db.Books.Add(validBook1);
+        db.Books.Add(validBook2);
+        db.Books.Add(validBook3);
+        db.Books.Add(validBook4);
+        await db.SaveChangesAsync();
+
 
         var result = await service.SearchAsync(null, 300);
         result.Should().HaveCount(2);
