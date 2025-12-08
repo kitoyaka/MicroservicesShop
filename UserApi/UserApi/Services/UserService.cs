@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using UserApi.Data;
 using UserApi.Models;
+using BCrypt.Net;
+using UserApi.DTOs;
 
 namespace UserApi.Services;
 
@@ -16,25 +18,9 @@ public class UserService : IUserService
 
     }
 
-    public UserService (UserDB db)
-    {
-        _db = db; 
-    }
-
     public async Task<List<User>> GetAllUsersAsync()
     {
         return await _db.Users.ToListAsync();
-    }
-
-    public async Task<bool> CreateUserAsync(User newUser)
-    {
-        if (string.IsNullOrEmpty(newUser.Name) || string.IsNullOrEmpty(newUser.Email))
-        { 
-        return false;
-        }
-        _db.Users.Add(newUser);
-        await _db.SaveChangesAsync();
-        return true;
     }
 
     public async Task<bool> DeleteUserAsync(int id)
@@ -50,21 +36,19 @@ public class UserService : IUserService
         else return false;
     }
 
-    public async Task<bool> ChangeUserAsync(int id, User updatedUser)
+    public async Task<bool> ChangeUserAsync(int id, UserRegisterDTO updatedUser)
     {
         var user = await _db.Users.FindAsync(id);
         if (user != null)
         {
-            user.Name = updatedUser.Name;
+            user.UserName = updatedUser.Username;
             user.Email = updatedUser.Email;
             await _db.SaveChangesAsync();
             return true;
-
         }
         else return false;
-
     }
-
+    
     public async Task<string> GetBooksFromOtherApiAsync()
     {
         var client = _httpFactory.CreateClient();
@@ -78,6 +62,26 @@ public class UserService : IUserService
             return content;
         }
         return "Error";
+    }
+
+    public async Task<string> RegisterUserAsync(UserRegisterDTO request)
+    {
+        var userExists = await _db.Users.AnyAsync(u => u.UserName == request.Username);
+        if(userExists) return "Error: User already exists";
+
+        string PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        var newUser = new User
+        {
+            UserName = request.Username,
+            PasswordHash = request.Password,
+            Email = request.Email,
+            Role = "User"
+        };
+
+        _db.Users.Add(newUser);
+        await _db.SaveChangesAsync();
+
+        return "Success";
     }
 
 }

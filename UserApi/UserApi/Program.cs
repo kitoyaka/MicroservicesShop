@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using UserApi.Data;
 using UserApi.Models;
 using UserApi.Services;
+using UserApi.DTOs;
+using BCrypt.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,21 +43,21 @@ app.MapGet("/api/users", async(IUserService service) =>
     return await service.GetAllUsersAsync();
 });
 
-app.MapPost("/api/users", async (IUserService service, User newUser) =>
+app.MapPost("/api/auth/register", async (IUserService service, UserRegisterDTO dto) =>
 {
-    bool result = await service.CreateUserAsync(newUser);
-    if (result)
+    var result =  await service.RegisterUserAsync(dto);
+    if(result == "Success")
     {
-        return Results.Created($"/api/users/{newUser.Id}", newUser);
+        return Results.Ok("User registered successfully!");
     }
     else
     {
-        return Results.BadRequest("ERROR!!! NAME OR EMAIL EMPTY");    
+        return Results.BadRequest(result);
     }
 
 });
 
-app.MapPut("/api/users", async (IUserService service, User user, int id) =>
+app.MapPut("/api/users", async (IUserService service, UserRegisterDTO user, int id) =>
 {
     bool result = await service.ChangeUserAsync(id, user);
     if (result)
