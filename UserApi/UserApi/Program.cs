@@ -8,7 +8,7 @@ using BCrypt.Net;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<UserDB>(options =>
-    options.UseSqlite("Data Source=user.db"));
+    options.UseSqlite("Data Source=shop_user.db"));
 
 builder.Services.AddScoped<IUserService, UserService>();
 
@@ -84,5 +84,15 @@ app.MapDelete("/api/users", async (IUserService service, int id) =>
         return Results.NotFound("Your id not found");
     }
 });
+
+app.MapPost("api/auth/login", async (IUserService service, UserLoginDTO dto) =>
+{
+    var result = await service.LoginAsync(dto);
+    if(result.StartsWith("Error")) return Results.BadRequest(result);
+    return Results.Ok(new {Token = result});
+    
+
+});
+
 
 app.Run();

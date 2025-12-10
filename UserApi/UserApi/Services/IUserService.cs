@@ -10,5 +10,6 @@ namespace UserApi.Services
         Task<bool> ChangeUserAsync(int id, UserRegisterDTO updatedUser);
         Task<string> GetBooksFromOtherApiAsync();
         Task<string> RegisterUserAsync(UserRegisterDTO request);
+        Task<string> LoginAsync(UserLoginDTO request);
     }
 }

@@ -3,6 +3,10 @@ using UserApi.Data;
 using UserApi.Models;
 using BCrypt.Net;
 using UserApi.DTOs;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace UserApi.Services;
 
@@ -69,11 +73,11 @@ public class UserService : IUserService
         var userExists = await _db.Users.AnyAsync(u => u.UserName == request.Username);
         if(userExists) return "Error: User already exists";
 
-        string PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         var newUser = new User
         {
             UserName = request.Username,
-            PasswordHash = request.Password,
+            PasswordHash = passwordHash,
             Email = request.Email,
             Role = "User"
         };
@@ -82,6 +86,48 @@ public class UserService : IUserService
         await _db.SaveChangesAsync();
 
         return "Success";
+    }
+
+    public async Task<string> LoginAsync(UserLoginDTO request)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserName == request.Username);
+
+        if(user is null)
+        {
+            return "Error: User not found";
+        }   
+
+        if(!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            return "Error: Wrong password";
+        }
+        
+        string token = CreateToken(user);
+        return token;
+    }
+
+    private string CreateToken(User user)
+    {
+        List<Claim> claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, user.UserName),
+            new Claim(ClaimTypes.Role, user.Role),
+            new Claim("Id", user.Id.ToString())
+        };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("my super secret key for tokens 123456789"));
+
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.Now.AddDays(1),
+            signingCredentials: creds
+        );
+
+        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+        
+        return jwt;
     }
 
 }
